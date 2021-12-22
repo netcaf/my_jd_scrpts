@@ -20,8 +20,15 @@ logger.addHandler(logging.StreamHandler())  # 添加控制台日志
 # logger.addHandler(logging.FileHandler(filename="text.log", mode="w"))  # 添加文件日志
 
 
-ip = "localhost"
-sub_str = os.getenv("RES_SUB", "pangbai6_pangbai66")
+ipport = os.getenv("IPPORT")
+if not ipport:
+    logger.info(
+        "如果报错请在环境变量中添加你的真实 IP:端口\n名称：IPPORT\t值：127.0.0.1:5700\n或在 config.sh 中添加 export IPPORT='127.0.0.1:5700'"
+    )
+    ipport = "localhost:5700"
+else:
+    ipport = ipport.lstrip("http://").rstrip("/")
+sub_str = os.getenv("RES_SUB", "shufflewzc_faker2")
 sub_list = sub_str.split("&")
 res_only = os.getenv("RES_ONLY", True)
 headers = {
@@ -47,7 +54,7 @@ def load_send() -> None:
 def get_tasklist() -> list:
     tasklist = []
     t = round(time.time() * 1000)
-    url = f"http://{ip}:5700/api/crons?searchValue=&t={t}"
+    url = f"http://{ipport}/api/crons?searchValue=&t={t}"
     response = requests.get(url=url, headers=headers)
     datas = json.loads(response.content.decode("utf-8"))
     if datas.get("code") == 200:
@@ -102,11 +109,9 @@ def get_duplicate_list(tasklist: list) -> tuple:
                 logger.info(f"【✅保留】{cmds[name_index[0]]}")
                 tem_tasks.append(tasklist[name_index[0]])
                 tem_ids.append(ids[name_index[0]])
-                #print(ids[name_index[0]])
             else:
                 logger.info(f"【🚫禁用】{cmds[name_index[i]]}")
                 dup_ids.append(ids[name_index[i]])
-                #print(ids[name_index[i]])
         logger.info("")
 
     logger.info("=== 第一轮初筛结束 ===")
@@ -125,7 +130,6 @@ def reserve_task_only(
     for task1 in tem_tasks:
         for task2 in res_list:
             if task1.get("name") == task2.get("name"):
-                #print(task1.get("_id"))
                 dup_ids.append(task1.get("_id"))
                 logger.info(f"【✅保留】{task2.get('command')}")
                 task3 = task1
@@ -137,9 +141,8 @@ def reserve_task_only(
 
 
 def disable_duplicate_tasks(ids: list) -> None:
-    #print(ids)
     t = round(time.time() * 1000)
-    url = f"http://{ip}:5700/api/crons/disable?t={t}"
+    url = f"http://{ipport}/api/crons/disable?t={t}"
     data = json.dumps(ids)
     headers["Content-Type"] = "application/json;charset=UTF-8"
     response = requests.put(url=url, headers=headers, data=data)
@@ -149,14 +152,13 @@ def disable_duplicate_tasks(ids: list) -> None:
     else:
         logger.info("🎉成功禁用重复任务~")
 
-def enable_all_tasks(tasklist: list) -> None:
+def reset_all_tasks(tasklist: list) -> None:
     ids = []
     for task in tasklist:
         ids.append(task.get("_id"))
     
-    #print(ids)
     t = round(time.time() * 1000)
-    url = f"http://{ip}:5700/api/crons/enable?t={t}"
+    url = f"http://{ipport}/api/crons/enable?t={t}"
     data = json.dumps(ids)
     headers["Content-Type"] = "application/json;charset=UTF-8"
     response = requests.put(url=url, headers=headers, data=data)
@@ -164,12 +166,12 @@ def enable_all_tasks(tasklist: list) -> None:
     if datas.get("code") != 200:
         logger.info(f"❌出错!!!错误信息为：{datas}")
     else:
-        logger.info("🎉成功禁用重复任务~")
+        logger.info("🎉成功重置任务~")
 
 
 def get_token() -> str or None:
     try:
-        with open("/Users/frankkang/data/ql/config/auth.json", "r", encoding="utf-8") as f:
+        with open("/ql/config/auth.json", "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception:
         logger.info(f"❌无法获取 token!!!\n{traceback.format_exc()}")
@@ -191,7 +193,7 @@ if __name__ == "__main__":
     if len(tasklist) == 0:
         logger.info("❌无法获取 tasklist!!!")
         exit(1)
-    enable_all_tasks(tasklist)
+    reset_all_tasks(tasklist)
     filter_list, res_list = filter_res_sub(tasklist)
 
     tem_ids, tem_tasks, dup_ids = get_duplicate_list(filter_list)
@@ -201,8 +203,6 @@ if __name__ == "__main__":
     else:
         ids = dup_ids
         logger.info("你选择保留除了设置的前缀以外的其他任务")
-
-    #print(ids)
 
     sum = f"所有任务数量为：{len(tasklist)}"
     filter = f"过滤的任务数量为：{len(res_list)}"
