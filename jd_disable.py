@@ -168,6 +168,17 @@ def reset_all_tasks(tasklist: list) -> None:
     else:
         logger.info("🎉成功重置任务~")
 
+def filter_task_by_name_prefix(tasklist: list, name_prefix: str='') -> list:
+    if not name_prefix:
+        return tasklist
+
+    temp_task = []
+    for task in tasklist:
+        if task['name'].startswith(name_prefix):
+            logger.info(f"Skip: {task['name']}")
+        else:
+            temp_task.append(task)
+    return temp_task
 
 def get_token() -> str or None:
     try:
@@ -190,6 +201,7 @@ if __name__ == "__main__":
     sub_str = "\n".join(sub_list)
     logger.info(f"\n=== 你选择过滤的任务前缀为 ===\n{sub_str}")
     tasklist = get_tasklist()
+    tasklist = filter_task_by_name_prefix(tasklist, 'pinned')
     if len(tasklist) == 0:
         logger.info("❌无法获取 tasklist!!!")
         exit(1)
